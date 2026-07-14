@@ -103,6 +103,17 @@ export default function ProjectDetail() {
         }
     }
 
+    async function handleDeleteTask(taskId: string) {
+        if (!confirm("Supprimer cette tâche ?")) return;
+
+        try {
+            await api.delete(`/projects/${id}/tasks/${taskId}`);
+            fetchProject();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
     async function handleAddParticipant(e: React.FormEvent) {
         e.preventDefault();
         setParticipantError("");
@@ -114,6 +125,17 @@ export default function ProjectDetail() {
             fetchProject();
         } catch (err: any) {
             setParticipantError(err.response?.data?.error || "Une erreur est survenue");
+        }
+    }
+
+    async function handleRemoveParticipant(participantId: string) {
+        if (!confirm("Retirer ce participant du projet ?")) return;
+
+        try {
+            await api.delete(`/projects/${id}/participants/${participantId}`);
+            fetchProject();
+        } catch (err) {
+            console.error(err);
         }
     }
 
@@ -154,7 +176,6 @@ export default function ProjectDetail() {
                     </div>
                 </div>
 
-                {/* Section participants */}
                 <GlassCard
                     className="mb-8 animate-fade-in-up"
                     style={{ animationDelay: "0.05s", animationFillMode: "backwards" } as any}
@@ -173,9 +194,16 @@ export default function ProjectDetail() {
                         {project.participants.map((p) => (
                             <span
                                 key={p.id}
-                                className="px-3 py-1 bg-white/50 border border-white/60 text-gray-800 rounded-full text-sm"
+                                className="px-3 py-1 bg-white/50 border border-white/60 text-gray-800 rounded-full text-sm flex items-center gap-2"
                             >
                                 {p.user.name}
+                                <button
+                                    onClick={() => handleRemoveParticipant(p.id)}
+                                    className="text-gray-500 hover:text-red-600 transition"
+                                    title="Retirer"
+                                >
+                                    ✕
+                                </button>
                             </span>
                         ))}
                     </div>
@@ -196,7 +224,6 @@ export default function ProjectDetail() {
                     {participantError && <p className="text-red-600 text-sm mt-2">{participantError}</p>}
                 </GlassCard>
 
-                {/* Bouton nouvelle tâche */}
                 <div
                     className="mb-6 animate-fade-in-up"
                     style={{ animationDelay: "0.1s", animationFillMode: "backwards" } as any}
@@ -231,7 +258,6 @@ export default function ProjectDetail() {
                     </GlassCard>
                 )}
 
-                {/* Kanban */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {STATUSES.map((statusCol, colIndex) => {
                         const tasksInColumn = project.tasks.filter((t) => t.status === statusCol.key);
@@ -252,7 +278,16 @@ export default function ProjectDetail() {
                                 <div className="flex flex-col gap-4">
                                     {tasksInColumn.map((task) => (
                                         <GlassCard key={task.id} className="!p-5">
-                                            <h4 className="font-semibold text-gray-900 mb-1">{task.title}</h4>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="font-semibold text-gray-900">{task.title}</h4>
+                                                <button
+                                                    onClick={() => handleDeleteTask(task.id)}
+                                                    className="text-gray-500 hover:text-red-600 text-sm transition"
+                                                    title="Supprimer la tâche"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
                                             <p className="text-gray-700 text-sm mb-4">{task.description}</p>
 
                                             <div className="flex flex-col gap-2">

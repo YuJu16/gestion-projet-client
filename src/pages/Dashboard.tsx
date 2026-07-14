@@ -55,6 +55,19 @@ export default function Dashboard() {
         }
     }
 
+    async function handleDelete(e: React.MouseEvent, projectId: string) {
+        e.stopPropagation();
+
+        if (!confirm("Supprimer ce projet et toutes ses tâches ?")) return;
+
+        try {
+            await api.delete(`/projects/${projectId}`);
+            fetchProjects();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
     return (
         <PageBackground>
             <div className="min-h-screen p-8 max-w-5xl mx-auto">
@@ -115,7 +128,18 @@ export default function Dashboard() {
                                 style={{ animationDelay: `${0.15 + i * 0.05}s`, animationFillMode: "backwards" } as any}
                             >
                                 <div onClick={() => navigate(`/projects/${project.id}`)}>
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-2">{project.title}</h2>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h2 className="text-xl font-semibold text-gray-900">{project.title}</h2>
+                                        {project.owner.id === user?.id && (
+                                            <button
+                                                onClick={(e) => handleDelete(e, project.id)}
+                                                className="text-gray-500 hover:text-red-600 text-sm transition"
+                                                title="Supprimer le projet"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                    </div>
                                     <p className="text-gray-700 mb-4 line-clamp-2">{project.description}</p>
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                         <span className="px-3 py-1 bg-white/50 backdrop-blur-sm border border-white/60 rounded-full">
