@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 import PageBackground from "../components/PageBackground";
 import GlassCard from "../components/GlassCard";
 import Button from "../components/Button";
@@ -37,6 +38,8 @@ const STATUSES: { key: Task["status"]; label: string }[] = [
 export default function ProjectDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const currentUserId = user?.id;
 
     const [project, setProject] = useState<ProjectData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -191,21 +194,26 @@ export default function ProjectDetail() {
                         <span className="px-3 py-1 bg-pink-200/50 border border-white/60 text-pink-800 rounded-full text-sm">
                             {project.owner.name} (propriétaire)
                         </span>
-                        {project.participants.map((p) => (
-                            <span
-                                key={p.id}
-                                className="px-3 py-1 bg-white/50 border border-white/60 text-gray-800 rounded-full text-sm flex items-center gap-2"
-                            >
-                                {p.user.name}
-                                <button
-                                    onClick={() => handleRemoveParticipant(p.id)}
-                                    className="text-gray-500 hover:text-red-600 transition"
-                                    title="Retirer"
+                        {project.participants.map((p) => {
+                            const canRemove = project.owner.id === currentUserId || p.user.id === currentUserId;
+                            return (
+                                <span
+                                    key={p.id}
+                                    className="px-3 py-1 bg-white/50 border border-white/60 text-gray-800 rounded-full text-sm flex items-center gap-2"
                                 >
-                                    ✕
-                                </button>
-                            </span>
-                        ))}
+                                    {p.user.name}
+                                    {canRemove && (
+                                        <button
+                                            onClick={() => handleRemoveParticipant(p.id)}
+                                            className="text-gray-500 hover:text-red-600 transition"
+                                            title={p.user.id === currentUserId ? "Quitter le projet" : "Retirer"}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </span>
+                            );
+                        })}
                     </div>
 
                     {showParticipantForm && (
