@@ -53,10 +53,15 @@ src/
 - Inscription / connexion
 - Créer, consulter, supprimer un projet
 - Tâches organisées en kanban (À faire / En cours / Terminé)
-- Changer le statut et assigner une tâche à un participant
-- Ajouter un participant, et le retirer (owner ou le participant lui-même)
+- Modifier le titre et la description d'une tâche
+- Filtrer les tâches par statut et rechercher par titre
+- Changer le statut d'une tâche
+- Assigner une tâche à plusieurs participants en même temps
+- Ajouter un participant par email ou par pseudo
+- Retirer un participant (owner ou le participant lui-même)
 
 ## Notes
 
 - Le token JWT est stocké dans le localStorage pour garder la session après un refresh.
 - `/dashboard` et `/projects/:id` sont protégées : sans token valide, redirection vers `/login`.
+- Le filtre par statut et la recherche par titre se font côté client sur les tâches déjà chargées.

@@ -11,13 +11,16 @@ interface Participant {
     user: { id: string; name: string; email: string };
 }
 
+interface Assignee {
+    user: { id: string; name: string };
+}
+
 interface Task {
     id: string;
     title: string;
     description: string;
     status: "A_FAIRE" | "EN_COURS" | "TERMINE";
-    assignedToId: string | null;
-    assignedTo?: { id: string; name: string } | null;
+    assignees: Assignee[];
 }
 
 interface ProjectData {
@@ -50,8 +53,18 @@ export default function ProjectDetail() {
     const [taskError, setTaskError] = useState("");
 
     const [showParticipantForm, setShowParticipantForm] = useState(false);
-    const [participantEmail, setParticipantEmail] = useState("");
+    const [participantIdentifier, setParticipantIdentifier] = useState("");
     const [participantError, setParticipantError] = useState("");
+
+    const [statusFilter, setStatusFilter] = useState<"ALL" | Task["status"]>("ALL");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+
+    const [assigningTaskId, setAssigningTaskId] = useState<string | null>(null);
+    const [assigningSelected, setAssigningSelected] = useState<Set<string>>(new Set());
 
     async function fetchProject() {
         try {
@@ -95,11 +108,48 @@ export default function ProjectDetail() {
         }
     }
 
-    async function handleAssign(taskId: string, assignedToId: string) {
+    function startEditing(task: Task) {
+        setEditingTaskId(task.id);
+        setEditTitle(task.title);
+        setEditDescription(task.description);
+    }
+
+    async function handleSaveEdit(taskId: string) {
         try {
             await api.put(`/projects/${id}/tasks/${taskId}`, {
-                assignedToId: assignedToId || null,
+                title: editTitle,
+                description: editDescription,
             });
+            setEditingTaskId(null);
+            fetchProject();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function startAssigning(task: Task) {
+        setAssigningTaskId(task.id);
+        setAssigningSelected(new Set(task.assignees.map((a) => a.user.id)));
+    }
+
+    function toggleAssignee(userId: string) {
+        setAssigningSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(userId)) {
+                next.delete(userId);
+            } else {
+                next.add(userId);
+            }
+            return next;
+        });
+    }
+
+    async function handleSaveAssignees(taskId: string) {
+        try {
+            await api.put(`/projects/${id}/tasks/${taskId}/assignees`, {
+                userIds: Array.from(assigningSelected),
+            });
+            setAssigningTaskId(null);
             fetchProject();
         } catch (err) {
             console.error(err);
@@ -122,8 +172,8 @@ export default function ProjectDetail() {
         setParticipantError("");
 
         try {
-            await api.post(`/projects/${id}/participants`, { email: participantEmail });
-            setParticipantEmail("");
+            await api.post(`/projects/${id}/participants`, { identifier: participantIdentifier });
+            setParticipantIdentifier("");
             setShowParticipantForm(false);
             fetchProject();
         } catch (err: any) {
@@ -161,6 +211,19 @@ export default function ProjectDetail() {
             </PageBackground>
         );
     }
+
+    const allMembers = [
+        { id: project.owner.id, name: project.owner.name },
+        ...project.participants.map((p) => ({ id: p.user.id, name: p.user.name })),
+    ];
+
+    const filteredTasks = project.tasks.filter((t) => {
+        const matchesStatus = statusFilter === "ALL" || t.status === statusFilter;
+        const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesStatus && matchesSearch;
+    });
+
+    const visibleStatuses = statusFilter === "ALL" ? STATUSES : STATUSES.filter((s) => s.key === statusFilter);
 
     return (
         <PageBackground>
@@ -219,10 +282,10 @@ export default function ProjectDetail() {
                     {showParticipantForm && (
                         <form onSubmit={handleAddParticipant} className="flex gap-2 mt-4">
                             <input
-                                type="email"
-                                placeholder="Email du participant"
-                                value={participantEmail}
-                                onChange={(e) => setParticipantEmail(e.target.value)}
+                                type="text"
+                                placeholder="Email ou pseudo du participant"
+                                value={participantIdentifier}
+                                onChange={(e) => setParticipantIdentifier(e.target.value)}
                                 required
                                 className="flex-1 px-4 py-2 rounded-xl bg-white/50 border border-white/60 placeholder-gray-500 text-gray-900 outline-none focus:bg-white/70 transition"
                             />
@@ -233,12 +296,34 @@ export default function ProjectDetail() {
                 </GlassCard>
 
                 <div
-                    className="mb-6 animate-fade-in-up"
+                    className="flex flex-wrap items-center justify-between gap-4 mb-6 animate-fade-in-up"
                     style={{ animationDelay: "0.1s", animationFillMode: "backwards" } as any}
                 >
                     <Button onClick={() => setShowTaskForm(!showTaskForm)}>
                         {showTaskForm ? "Annuler" : "+ Nouvelle tâche"}
                     </Button>
+
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Rechercher une tâche..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="px-4 py-2 rounded-xl bg-white/50 border border-white/60 placeholder-gray-500 text-gray-900 outline-none focus:bg-white/70 transition text-sm"
+                        />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as any)}
+                            className="px-4 py-2 rounded-xl bg-white/50 border border-white/60 text-gray-800 outline-none text-sm"
+                        >
+                            <option value="ALL">Tous les statuts</option>
+                            {STATUSES.map((s) => (
+                                <option key={s.key} value={s.key}>
+                                    {s.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {showTaskForm && (
@@ -266,9 +351,9 @@ export default function ProjectDetail() {
                     </GlassCard>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {STATUSES.map((statusCol, colIndex) => {
-                        const tasksInColumn = project.tasks.filter((t) => t.status === statusCol.key);
+                <div className={`grid grid-cols-1 gap-6 ${visibleStatuses.length === 3 ? "md:grid-cols-3" : visibleStatuses.length === 2 ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+                    {visibleStatuses.map((statusCol, colIndex) => {
+                        const tasksInColumn = filteredTasks.filter((t) => t.status === statusCol.key);
 
                         return (
                             <div
@@ -286,47 +371,111 @@ export default function ProjectDetail() {
                                 <div className="flex flex-col gap-4">
                                     {tasksInColumn.map((task) => (
                                         <GlassCard key={task.id} className="!p-5">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <h4 className="font-semibold text-gray-900">{task.title}</h4>
-                                                <button
-                                                    onClick={() => handleDeleteTask(task.id)}
-                                                    className="text-gray-500 hover:text-red-600 text-sm transition"
-                                                    title="Supprimer la tâche"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                            <p className="text-gray-700 text-sm mb-4">{task.description}</p>
+                                            {editingTaskId === task.id ? (
+                                                <div className="flex flex-col gap-2 mb-3">
+                                                    <input
+                                                        type="text"
+                                                        value={editTitle}
+                                                        onChange={(e) => setEditTitle(e.target.value)}
+                                                        className="px-3 py-2 rounded-lg bg-white/60 border border-white/60 text-gray-900 outline-none text-sm"
+                                                    />
+                                                    <textarea
+                                                        value={editDescription}
+                                                        onChange={(e) => setEditDescription(e.target.value)}
+                                                        rows={2}
+                                                        className="px-3 py-2 rounded-lg bg-white/60 border border-white/60 text-gray-900 outline-none text-sm resize-none"
+                                                    />
+                                                    <div className="flex gap-2">
+                                                        <Button className="!px-4 !py-1.5 text-sm" onClick={() => handleSaveEdit(task.id)}>
+                                                            Enregistrer
+                                                        </Button>
+                                                        <Button
+                                                            variant="secondary"
+                                                            className="!px-4 !py-1.5 text-sm"
+                                                            onClick={() => setEditingTaskId(null)}
+                                                        >
+                                                            Annuler
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="font-semibold text-gray-900">{task.title}</h4>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => startEditing(task)}
+                                                            className="text-gray-500 hover:text-gray-900 text-sm transition"
+                                                            title="Modifier la tâche"
+                                                        >
+                                                            ✎
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteTask(task.id)}
+                                                            className="text-gray-500 hover:text-red-600 text-sm transition"
+                                                            title="Supprimer la tâche"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                            <div className="flex flex-col gap-2">
-                                                <select
-                                                    value={task.status}
-                                                    onChange={(e) =>
-                                                        handleStatusChange(task.id, e.target.value as Task["status"])
-                                                    }
-                                                    className="text-sm px-3 py-2 rounded-lg bg-white/50 border border-white/60 text-gray-800 outline-none"
-                                                >
-                                                    {STATUSES.map((s) => (
-                                                        <option key={s.key} value={s.key}>
-                                                            {s.label}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                            {editingTaskId !== task.id && (
+                                                <>
+                                                    <p className="text-gray-700 text-sm mb-4">{task.description}</p>
 
-                                                <select
-                                                    value={task.assignedToId || ""}
-                                                    onChange={(e) => handleAssign(task.id, e.target.value)}
-                                                    className="text-sm px-3 py-2 rounded-lg bg-white/50 border border-white/60 text-gray-800 outline-none"
-                                                >
-                                                    <option value="">Non assignée</option>
-                                                    <option value={project.owner.id}>{project.owner.name}</option>
-                                                    {project.participants.map((p) => (
-                                                        <option key={p.user.id} value={p.user.id}>
-                                                            {p.user.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                                    <select
+                                                        value={task.status}
+                                                        onChange={(e) => handleStatusChange(task.id, e.target.value as Task["status"])}
+                                                        className="w-full text-sm px-3 py-2 rounded-lg bg-white/50 border border-white/60 text-gray-800 outline-none mb-2"
+                                                    >
+                                                        {STATUSES.map((s) => (
+                                                            <option key={s.key} value={s.key}>
+                                                                {s.label}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+
+                                                    {assigningTaskId === task.id ? (
+                                                        <div className="bg-white/40 rounded-lg p-3 flex flex-col gap-2">
+                                                            {allMembers.map((m) => (
+                                                                <label key={m.id} className="flex items-center gap-2 text-sm text-gray-800">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={assigningSelected.has(m.id)}
+                                                                        onChange={() => toggleAssignee(m.id)}
+                                                                    />
+                                                                    {m.name}
+                                                                </label>
+                                                            ))}
+                                                            <div className="flex gap-2 mt-1">
+                                                                <Button
+                                                                    className="!px-4 !py-1.5 text-sm"
+                                                                    onClick={() => handleSaveAssignees(task.id)}
+                                                                >
+                                                                    Enregistrer
+                                                                </Button>
+                                                                <Button
+                                                                    variant="secondary"
+                                                                    className="!px-4 !py-1.5 text-sm"
+                                                                    onClick={() => setAssigningTaskId(null)}
+                                                                >
+                                                                    Annuler
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => startAssigning(task)}
+                                                            className="w-full text-left text-sm px-3 py-2 rounded-lg bg-white/50 border border-white/60 text-gray-800 hover:bg-white/70 transition"
+                                                        >
+                                                            {task.assignees.length === 0
+                                                                ? "Non assignée — cliquer pour assigner"
+                                                                : `Assignée à : ${task.assignees.map((a) => a.user.name).join(", ")}`}
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
                                         </GlassCard>
                                     ))}
 
