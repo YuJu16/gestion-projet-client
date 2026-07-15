@@ -21,6 +21,7 @@ export default function Dashboard() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [error, setError] = useState("");
+    const [actionError, setActionError] = useState("");
 
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -57,14 +58,15 @@ export default function Dashboard() {
 
     async function handleDelete(e: React.MouseEvent, projectId: string) {
         e.stopPropagation();
+        setActionError("");
 
         if (!confirm("Supprimer ce projet et toutes ses tâches ?")) return;
 
         try {
             await api.delete(`/projects/${projectId}`);
             fetchProjects();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setActionError(err.response?.data?.error || "Impossible de supprimer ce projet");
         }
     }
 
@@ -80,6 +82,12 @@ export default function Dashboard() {
                         Déconnexion
                     </Button>
                 </div>
+
+                {actionError && (
+                    <div className="mb-6 px-4 py-3 rounded-xl bg-red-100/70 border border-red-300 text-red-700 text-sm animate-fade-in-up">
+                        {actionError}
+                    </div>
+                )}
 
                 <div
                     className="mb-8 animate-fade-in-up"
