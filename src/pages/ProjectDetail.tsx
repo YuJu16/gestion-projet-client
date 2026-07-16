@@ -72,6 +72,7 @@ export default function ProjectDetail() {
 
     const [project, setProject] = useState<ProjectData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [actionError, setActionError] = useState("");
 
     // Task creation form
     const [showTaskForm, setShowTaskForm] = useState(false);
@@ -163,6 +164,7 @@ export default function ProjectDetail() {
 
     async function handleInlineAdd(status: Task["status"]) {
         if (!inlineTitle.trim()) return;
+        setActionError("");
         try {
             await api.post(`/projects/${id}/tasks`, {
                 title: inlineTitle.trim(),
@@ -173,17 +175,18 @@ export default function ProjectDetail() {
             setInlineDescription("");
             setInlineAddStatus(null);
             fetchProject();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setActionError(err.response?.data?.error || "Impossible de créer cette tâche");
         }
     }
 
     async function handleStatusChange(taskId: string, newStatus: Task["status"]) {
+        setActionError("");
         try {
             await api.put(`/projects/${id}/tasks/${taskId}`, { status: newStatus });
             fetchProject();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setActionError(err.response?.data?.error || "Impossible de changer le statut");
         }
     }
 
@@ -194,6 +197,7 @@ export default function ProjectDetail() {
     }
 
     async function handleSaveEdit(taskId: string) {
+        setActionError("");
         try {
             await api.put(`/projects/${id}/tasks/${taskId}`, {
                 title: editTitle,
@@ -201,8 +205,8 @@ export default function ProjectDetail() {
             });
             setEditingTaskId(null);
             fetchProject();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setActionError(err.response?.data?.error || "Impossible de modifier cette tâche");
         }
     }
 
@@ -221,14 +225,15 @@ export default function ProjectDetail() {
     }
 
     async function handleSaveAssignees(taskId: string) {
+        setActionError("");
         try {
             await api.put(`/projects/${id}/tasks/${taskId}/assignees`, {
                 userIds: Array.from(assigningSelected),
             });
             setAssigningTaskId(null);
             fetchProject();
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setActionError(err.response?.data?.error || "Impossible de mettre à jour l'assignation");
         }
     }
 
@@ -237,11 +242,12 @@ export default function ProjectDetail() {
             message: "Supprimer cette tâche ?",
             onConfirm: async () => {
                 setConfirmAction(null);
+                setActionError("");
                 try {
                     await api.delete(`/projects/${id}/tasks/${taskId}`);
                     fetchProject();
-                } catch (err) {
-                    console.error(err);
+                } catch (err: any) {
+                    setActionError(err.response?.data?.error || "Impossible de supprimer cette tâche");
                 }
             },
         });
@@ -265,11 +271,12 @@ export default function ProjectDetail() {
             message: "Retirer ce participant du projet ?",
             onConfirm: async () => {
                 setConfirmAction(null);
+                setActionError("");
                 try {
                     await api.delete(`/projects/${id}/participants/${participantId}`);
                     fetchProject();
-                } catch (err) {
-                    console.error(err);
+                } catch (err: any) {
+                    setActionError(err.response?.data?.error || "Impossible de retirer ce participant");
                 }
             },
         });
@@ -369,6 +376,12 @@ export default function ProjectDetail() {
                             )}
                         </div>
                     </div>
+
+                    {actionError && (
+                        <div className="mb-6 px-4 py-3 rounded-xl bg-red-100/70 border border-red-300 text-red-700 text-sm">
+                            {actionError}
+                        </div>
+                    )}
 
                     {/* Members card */}
                     <GlassCard
